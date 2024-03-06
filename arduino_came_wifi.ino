@@ -13,11 +13,12 @@
 #define AVAILABILITY_TOPIC "gate/availability"
 #define FORCE_UPDATE_TIME 60000
 #define CLICK_TIME 500
+#define CORRECT_NUM_OF_LECTURES 50
 // Update these with values suitable for your network.
 
-const char* ssid = "Pablitonet";
-const char* password = "angelo2000";
-const char* mqtt_server = "192.168.178.5";
+const char* ssid = "VF_IT_FWA_DF33";
+const char* password = "8iD3965d4284RYA5";
+const char* mqtt_server = "192.168.2.9";
 
 AsyncWebServer server(80);
 
@@ -28,10 +29,12 @@ PubSubClient client(espClient);
 unsigned long lastMsg = 0;
 char msg[MSG_BUFFER_SIZE];
 int value = 0;
+unsigned int statusCount=0;
 
 enum gateStatus {GATE_UNKNOWN=-1,GATE_OPENING, GATE_CLOSING, GATE_OPEN, GATE_CLOSED};
 enum gateCmnd {CMND_OPEN=0, CMND_CLOSE, CMND_STOP};
 gateStatus actualState;
+gateStatus lastReadedState;
 gateStatus lastLoggedState=GATE_UNKNOWN;
 
 static const int ACIn1 = 14;
@@ -144,7 +147,7 @@ void reconnect() {
     String clientId = "GateController-";
     clientId += String(ESP.getChipId(), DEC);
     // Attempt to connect
-    if (client.connect(clientId.c_str(),"angelo","mosquitto",AVAILABILITY_TOPIC,0,1,"offline")) {
+    if (client.connect(clientId.c_str(),"","",AVAILABILITY_TOPIC,0,1,"offline")) {
       Serial.println("connected");
       // ... and resubscribe
       client.subscribe(COMMAND_TOPIC);
@@ -217,16 +220,53 @@ void loop() {
 
 void stateUpdate(){
   if(!digitalRead(ACIn2)){
-    actualState = GATE_OPENING;
+    if(lastReadedState == GATE_OPENING){
+      statusCount++;
+    }
+    else{
+      statusCount=1;
+      lastReadedState = GATE_OPENING;
+      }
+    if(statusCount >  CORRECT_NUM_OF_LECTURES){
+      actualState = GATE_OPENING;
+    } 
+    
   }
   else if(!digitalRead(ACIn3)){
-    actualState = GATE_CLOSING;
+    if(lastReadedState == GATE_CLOSING){
+      statusCount++;
+    }
+    else{
+      statusCount=1;
+      lastReadedState = GATE_CLOSING;
+      }
+    if(statusCount >  CORRECT_NUM_OF_LECTURES){
+      actualState = GATE_CLOSING;
+    } 
   }
   else if(!digitalRead(ACIn1)){
-    actualState = GATE_OPEN;
+    if(lastReadedState == GATE_OPEN){
+      statusCount++;
+    }
+    else{
+      statusCount=1;
+      lastReadedState = GATE_OPEN;
+      }
+    if(statusCount >  CORRECT_NUM_OF_LECTURES){
+      actualState = GATE_OPEN;
+    }
   }
   else{
-    actualState = GATE_CLOSED;
+    if(lastReadedState == GATE_CLOSED){
+      statusCount++;
+    }
+    else{
+      statusCount=1;
+      lastReadedState = GATE_CLOSED;
+      }
+    if(statusCount >  CORRECT_NUM_OF_LECTURES){
+      actualState = GATE_CLOSED;
+    }
   }
 }
 
