@@ -1,3 +1,28 @@
 {
-    "idf.portWin": "COM6"
+    "idf.portWin": "COM6",
+    "files.associations": {
+        "array": "cpp",
+        "atomic": "cpp",
+        "bit": "cpp",
+        "*.tcc": "cpp",
+        "chrono": "cpp",
+        "string": "cpp",
+        "unordered_map": "cpp",
+        "functional": "cpp",
+        "memory_resource": "cpp",
+        "optional": "cpp",
+        "type_traits": "cpp",
+        "cmath": "cpp",
+        "random": "cpp",
+        "istream": "cpp",
+        "memory": "cpp",
+        "numeric": "cpp",
+        "ostream": "cpp",
+        "ratio": "cpp",
+        "system_error": "cpp",
+        "regex": "cpp",
+        "tuple": "cpp",
+        "utility": "cpp",
+        "variant": "cpp"
+    }
 }

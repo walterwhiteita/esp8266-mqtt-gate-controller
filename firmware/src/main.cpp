@@ -9,16 +9,10 @@
 #include "fs_functions.h"
 #include "html_pages.h"
 #include "wifi_functions.h"
+#include "settings.h"
+#include "core_functions.h"
+#include "shared.h"
 
-
-#define BUTTON_DEBOUNCE_DELAY   20   // [ms]
-#define MSG_BUFFER_SIZE	(50)
-#define STATE_TOPIC "gate/stat"
-#define COMMAND_TOPIC "gate/cmnd"
-#define AVAILABILITY_TOPIC "gate/availability"
-#define FORCE_UPDATE_TIME 60000
-#define CLICK_TIME 500
-#define CORRECT_NUM_OF_LECTURES 50
 // Update these with values suitable for your network.
 
 const char* ssid = "VF_IT_FWA_DF33";
@@ -35,34 +29,16 @@ unsigned long ota_progress_millis = 0;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
-unsigned long lastMsg = 0;
-char msg[MSG_BUFFER_SIZE];
-int value = 0;
-int n = 0;
-unsigned int statusCount=0;
 
-enum gateStatus {GATE_UNKNOWN=-1,GATE_OPENING, GATE_CLOSING, GATE_OPEN, GATE_CLOSED};
-enum gateCmnd {CMND_OPEN=0, CMND_CLOSE, CMND_STOP};
-gateStatus actualState;
-gateStatus lastReadedState;
-gateStatus lastLoggedState=GATE_UNKNOWN;
-
-static const int ACIn1 = 14;
-static const int ACIn2 = 12;
-static const int ACIn3 = 13;
-
-static const int Rele1 = 5;
-static const int Rele2 = 4;
-static const int Rele3 = 0;
+bool shouldReboot = false;
+bool hasWifiConfig = false;
 
 
+String clientId = DEFAULT_CLIENTID_PREFIX;
+
+extern unsigned long lastLoggedTime;
 
 
-unsigned long lastLoggedTime;
-
-String stateConversion(gateStatus input);
-void stateLog(bool force);
-void stateUpdate();
 
 void onOTAStart() {
   // Log when OTA has started
@@ -88,45 +64,6 @@ void onOTAEnd(bool success) {
   // <Add your own code here>
 }
 
-
-void setup_wifi() {
-  delay(10);
-  // We start by connecting to a WiFi network
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-}
-
-void relayClick(int pin){
-  digitalWrite(pin,HIGH);
-  delay(CLICK_TIME);
-  digitalWrite(pin,LOW);
-}
-
-void handleCmnd(gateCmnd cmnd){
-  switch(cmnd){
-    case CMND_OPEN:
-      relayClick(Rele1);
-    case CMND_CLOSE:
-      relayClick(Rele2);
-    case CMND_STOP:
-      relayClick(Rele3);  
-      
-  }
-}
-
 void callback(char *topic, byte *payload, unsigned int length) {
     if (!strcmp(topic, COMMAND_TOPIC)) {
         if (!strncmp((char *)payload, "OPEN", length)) {
@@ -143,8 +80,6 @@ void reconnect() {
   // Loop until we're reconnected
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
-    String clientId = "GateController-";
-    clientId += String(ESP.getChipId(), DEC);
     if (client.connect(clientId.c_str(),mqtt_conf.username,mqtt_conf.password,AVAILABILITY_TOPIC,0,1,"offline")) {
       Serial.println("connected");
       client.subscribe(COMMAND_TOPIC);
@@ -159,33 +94,30 @@ void reconnect() {
 }
 
 String wifiprocessor(const String& var) {
-    if(var=="W_NETWORKS"){
-      String response = "";
-      if(n){
-        for (int i = 0; i < n; i++)
-        {
-          response.concat("<option>");
-          response.concat(WiFi.SSID(i));
-          response.concat("</option>");
-        }
-      }
-      return response;
+    if(var=="DEFAULT_HOSTNAME"){
+      if(hasWifiConfig)
+        return wifi_conf.client_name;
+      else
+        return clientId;
+    }
+    else if(var=="SAVED_SSID"){
+      if(hasWifiConfig)
+        return wifi_conf.ssid;
+    }
+    else if(var=="SAVED_PASSWORD"){
+      if(hasWifiConfig)
+        return wifi_conf.pw;
     }
     return String();
 }
 
 void setup() {
-  pinMode(ACIn1,INPUT_PULLUP);
-  pinMode(ACIn2,INPUT_PULLUP);
-  pinMode(ACIn3,INPUT_PULLUP);
-
-  pinMode(Rele1,OUTPUT);
-  pinMode(Rele2,OUTPUT);
-  pinMode(Rele3,OUTPUT);
+  setupPin();
   Serial.begin(115200);
-  //setup_wifi();
+  clientId += String(ESP.getChipId(), DEC);
   int result=loadFS();
   result=loadWifiConfiguration(&wifi_conf);
+  hasWifiConfig = (result==0);
   if(result!=0){
     wifi_ap_start();
   }
@@ -201,20 +133,51 @@ void setup() {
       }
     }
   }
-  n = WiFi.scanNetworks();
   server.on("/wifi", HTTP_GET, [](AsyncWebServerRequest *request) {
     if(request->args()>0){
       strcpy(wifi_conf.ssid,request->arg("ssid").c_str());
       strcpy(wifi_conf.pw,request->arg("password").c_str());
       strcpy(wifi_conf.client_name,request->arg("hostname").c_str());
-      Serial.println(storeWifiConfiguration(&wifi_conf));
+      if(storeWifiConfiguration(&wifi_conf)==0){
+        request->send(200, "text/html",reboot_page);
+        shouldReboot = true;
+      }
+      else{
+        request->send(200, "text/html",reboot_page);// sostituire con error page
+      }
+      
     }
     request->send_P(200, "text/html",wifi_config_html,wifiprocessor);
   });
   server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send_P(200, "text/css",style);
   });
-
+  server.on("/scan", HTTP_GET, [](AsyncWebServerRequest *request){
+    String json = "[";
+    int n = WiFi.scanComplete();
+    if(n == -2){
+      WiFi.scanNetworks(true);
+    } else if(n){
+      for (int i = 0; i < n; ++i){
+        if(i) json += ",";
+        json += "{";
+        json += "\"rssi\":"+String(WiFi.RSSI(i));
+        json += ",\"ssid\":\""+WiFi.SSID(i)+"\"";
+        json += ",\"bssid\":\""+WiFi.BSSIDstr(i)+"\"";
+        json += ",\"channel\":"+String(WiFi.channel(i));
+        json += ",\"secure\":"+String(WiFi.encryptionType(i));
+        json += ",\"hidden\":"+String(WiFi.isHidden(i)?"true":"false");
+        json += "}";
+      }
+      WiFi.scanDelete();
+      if(WiFi.scanComplete() == -2){
+        WiFi.scanNetworks(true);
+      }
+    }
+    json += "]";
+    request->send(200, "application/json", json);
+    json = String();
+  });
   ElegantOTA.begin(&server);    // Start ElegantOTA
   // ElegantOTA callbacks
   ElegantOTA.onStart(onOTAStart);
@@ -231,6 +194,14 @@ void loop() {
   }
   client.loop();*/
   //Leggo i sensori
+  if(shouldReboot){
+    Serial.println("Rebooting...");
+    delay(1000);
+    ESP.restart();
+  }
+  if(wifi_connection_loop_handler()==0)
+    //reconnect();
+  //client.loop();
   stateUpdate();
   //Controllo se loggare su MQTT
   if(millis() - lastLoggedTime > FORCE_UPDATE_TIME){
@@ -241,96 +212,4 @@ void loop() {
   }
   ElegantOTA.loop();
 
-}
-
-void stateUpdate(){
-  if(!digitalRead(ACIn2)){
-    if(lastReadedState == GATE_OPENING){
-      statusCount++;
-    }
-    else{
-      statusCount=1;
-      lastReadedState = GATE_OPENING;
-      }
-    if(statusCount >  CORRECT_NUM_OF_LECTURES){
-      actualState = GATE_OPENING;
-    } 
-    
-  }
-  else if(!digitalRead(ACIn3)){
-    if(lastReadedState == GATE_CLOSING){
-      statusCount++;
-    }
-    else{
-      statusCount=1;
-      lastReadedState = GATE_CLOSING;
-      }
-    if(statusCount >  CORRECT_NUM_OF_LECTURES){
-      actualState = GATE_CLOSING;
-    } 
-  }
-  else if(!digitalRead(ACIn1)){
-    if(lastReadedState == GATE_OPEN){
-      statusCount++;
-    }
-    else{
-      statusCount=1;
-      lastReadedState = GATE_OPEN;
-      }
-    if(statusCount >  CORRECT_NUM_OF_LECTURES){
-      actualState = GATE_OPEN;
-    }
-  }
-  else{
-    if(lastReadedState == GATE_CLOSED){
-      statusCount++;
-    }
-    else{
-      statusCount=1;
-      lastReadedState = GATE_CLOSED;
-      }
-    if(statusCount >  CORRECT_NUM_OF_LECTURES){
-      actualState = GATE_CLOSED;
-    }
-  }
-}
-
-void stateLog(bool force){
-  if(force){
-    if(client.connected()){
-      String state = stateConversion(actualState);
-      Serial.print("Forced log -> ");
-      Serial.println(state);
-      client.publish(STATE_TOPIC,state.c_str());
-      lastLoggedState = actualState;
-      lastLoggedTime = millis();
-    }
-  }
-  else if(actualState != lastLoggedState){
-    if(client.connected()){
-      String state = stateConversion(actualState);
-      Serial.print("Normal log -> ");
-      Serial.println(state);
-      client.publish(STATE_TOPIC,state.c_str());
-      lastLoggedState = actualState;
-      lastLoggedTime = millis();
-    }
-  }
-}
-
-String stateConversion(gateStatus input){
-  switch(input){
-    case GATE_UNKNOWN:
-    return "unknown";
-    case GATE_OPENING:
-    return "opening";
-    case GATE_CLOSING:
-    return "closing";
-    case GATE_OPEN:
-    return "open";
-    case GATE_CLOSED:
-    return "closed";
-    default :
-    return "none";
-  }
 }

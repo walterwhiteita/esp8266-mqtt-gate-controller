@@ -1,7 +1,5 @@
 #include "fs_functions.h"
 
-
-
 void wifi_sta_ap_start();
 
 void wifi_reconnection();
