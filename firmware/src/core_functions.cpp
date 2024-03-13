@@ -13,10 +13,11 @@ static const int Rele3 = 0;
 
 gateStatus actualState;
 gateStatus lastReadedState;
-gateStatus lastLoggedState=GATE_UNKNOWN;
+
 
 unsigned int statusCount=0;
-unsigned long lastLoggedTime;
+
+extern bool shouldReboot;
 
 void relayClick(int pin){
   digitalWrite(pin,HIGH);
@@ -86,28 +87,7 @@ void stateUpdate(){
   }
 }
 
-void stateLog(bool force){
-  if(force){
-    /*if(client.connected()){
-      String state = stateConversion(actualState);
-      Serial.print("Forced log -> ");
-      Serial.println(state);
-      client.publish(STATE_TOPIC,state.c_str());
-      lastLoggedState = actualState;
-      lastLoggedTime = millis();
-    }*/
-  }
-  else if(actualState != lastLoggedState){
-    /*if(client.connected()){
-      String state = stateConversion(actualState);
-      Serial.print("Normal log -> ");
-      Serial.println(state);
-      client.publish(STATE_TOPIC,state.c_str());
-      lastLoggedState = actualState;
-      lastLoggedTime = millis();
-    }*/
-  }
-}
+
 
 String stateConversion(gateStatus input){
   switch(input){
@@ -133,4 +113,12 @@ void setupPin(){
     pinMode(Rele1,OUTPUT);
     pinMode(Rele2,OUTPUT);
     pinMode(Rele3,OUTPUT);
+}
+
+void shouldRebootCheck(){
+  if (shouldReboot){
+    Serial.println("Rebooting...");
+    delay(1000);
+    ESP.restart();
+  }
 }

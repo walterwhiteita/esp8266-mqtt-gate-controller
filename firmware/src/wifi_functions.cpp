@@ -1,27 +1,30 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include "wifi_functions.h"
+#include "settings.h"
 
 extern wifi_conf_t wifi_conf;
-
+extern bool shouldReboot;
 void wifi_sta_ap_start(){
   WiFi.mode(WIFI_AP_STA);
-  WiFi.softAP("hagate","password");
+  WiFi.softAP(AP_SSID,AP_PASSWORD);
   Serial.println("Access Point created while trying to connect to fixed network! IP address: ");
   Serial.println(WiFi.softAPIP());
 }
 
 void wifi_reconnection(){
-  while(WiFi.status() != WL_CONNECTED){
+  while(WiFi.status() != WL_CONNECTED && !shouldReboot){
     delay(500);
     Serial.print(".");
   }
-  Serial.println("");
-  Serial.print("Connected to ");
-  Serial.println(wifi_conf.ssid);
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-  WiFi.mode(WIFI_STA);
+  if(!shouldReboot){
+    Serial.println("");
+    Serial.print("Connected to ");
+    Serial.println(wifi_conf.ssid);
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+    WiFi.mode(WIFI_STA);
+  }
 }
 
 void wifi_ap_start(){

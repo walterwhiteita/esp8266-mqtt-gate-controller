@@ -6,3 +6,4 @@ void setupPin();
 String stateConversion(gateStatus input);
 void stateLog(bool force);
 void stateUpdate();
+void shouldRebootCheck();
