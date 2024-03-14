@@ -2,13 +2,14 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include "fs_functions.h"
+
 int loadFS(){
     if (!LittleFS.begin()) //avvio filesystem
     {
-    Serial.println("Errore nell'avvio del FileSystem");
-    return 0;
+        Serial.println("Errore nell'avvio del FileSystem");
+        return 1;
     }
-    return 1;
+    return 0;
 }
 
 int loadWifiConfiguration(wifi_conf_t *wifi_conf){

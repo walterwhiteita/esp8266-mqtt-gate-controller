@@ -14,7 +14,6 @@ static const int Rele3 = 0;
 gateStatus actualState;
 gateStatus lastReadedState;
 
-
 unsigned int statusCount=0;
 
 extern bool shouldReboot;

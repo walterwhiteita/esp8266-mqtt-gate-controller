@@ -5,16 +5,19 @@
 #define FS_FUNCTIONS_H
 
 typedef struct {
-  char ssid[30];
-  char pw[30];
-  char client_name[30];
+  char ssid[31];
+  char pw[31];
+  char client_name[51];
 } wifi_conf_t;
 
 typedef struct{
-  char ip[17];
+  char ip[51];
   int port;
-  char username[30];
-  char password[30];
+  char username[31];
+  char password[31];
+  char availability_topic[61];
+  char command_topic[61];
+  char state_topic[61];
 } mqtt_conf_t;
 
 typedef struct{
