@@ -26,20 +26,28 @@ unsigned long ota_progress_millis = 0;
 
 void initializeServerEndpoints(){
   //Setup response for wifi
-    server.on("/wifi", HTTP_GET, [](AsyncWebServerRequest *request){
-    if(request->args()>0){
-      strcpy(wifi_conf.ssid,request->arg("ssid").c_str());
-      strcpy(wifi_conf.pw,request->arg("password").c_str());
-      strcpy(wifi_conf.client_name,request->arg("hostname").c_str());
-      if(storeWifiConfiguration(&wifi_conf)==0){
-        request->send(200, "text/html",rebootPage);
-        shouldReboot = true;
+    server.on("/wifi", HTTP_ANY, [](AsyncWebServerRequest *request){
+      if(request->method() == HTTP_GET){
+        request->send_P(200, "text/html",wifiConfigPage,wifiprocessor);
       }
-      else{
-        request->send(200, "text/html",errorPage);// sostituire con error page
+      else if(request->method() == HTTP_POST){
+        if(request->params()>0){
+          strcpy(wifi_conf.ssid,request->arg("ssid").c_str());
+          strcpy(wifi_conf.pw,request->arg("password").c_str());
+          strcpy(wifi_conf.client_name,request->arg("hostname").c_str());
+          if(storeWifiConfiguration(&wifi_conf)==0){
+            request->send(200, "text/html",rebootPage);
+            shouldReboot = true;
+          }
+          else{
+            request->send(200, "text/html",errorPage);// sostituire con error page
+          }
+        }
+        else{
+            request->send(200, "text/html",errorPage);// sostituire con error page
+        }
       }
-    }
-    request->send_P(200, "text/html",wifiConfigHtml,wifiprocessor); });
+    });
     //Setup response richiesta stile
     server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send_P(200, "text/css", style); });
@@ -73,33 +81,50 @@ void initializeServerEndpoints(){
   //Setup response for mqtt
     server.on("/mqtt", HTTP_ANY, [](AsyncWebServerRequest *request){
       if(request->method() == HTTP_GET){
-       request->send_P(200, "text/html",mqttConfigHtml,mqttprocessor);
+       request->send_P(200, "text/html",mqttConfigPage,mqttprocessor);
       }
       else if(request->method() == HTTP_POST){
         if(request->params()== 7 && checkMqttParams(request)){
-          strcpy(mqtt_conf.ip,request->arg("broker").c_str());
-          mqtt_conf.port = atoi(request->arg("port").c_str());
-          strcpy(mqtt_conf.username,request->arg("username").c_str());
-          strcpy(mqtt_conf.password,request->arg("password").c_str());
-          strcpy(mqtt_conf.availability_topic,request->arg("availability-topic").c_str());
-          strcpy(mqtt_conf.command_topic,request->arg("command-topic").c_str());
-          strcpy(mqtt_conf.state_topic,request->arg("state-topic").c_str());
+          strcpy(mqtt_conf.ip,request->getParam("broker",true)->value().c_str());
+          mqtt_conf.port = atoi(request->getParam("port",true)->value().c_str());
+          strcpy(mqtt_conf.availability_topic,request->getParam("username",true)->value().c_str());
+          strcpy(mqtt_conf.password,request->getParam("password",true)->value().c_str());
+          strcpy(mqtt_conf.availability_topic,request->getParam("availability-topic",true)->value().c_str());
+          strcpy(mqtt_conf.command_topic,request->getParam("command-topic",true)->value().c_str());
+          strcpy(mqtt_conf.state_topic,request->getParam("state-topic",true)->value().c_str());
           if(storeMqttConfiguration(&mqtt_conf)==0){
-            request->send(200, "text/html",rebootPage);
+            request->send_P(200, "text/html",rebootPage);
             shouldReboot = true;
           }
           else{
             Serial.println("Errore salvataggio");
-            request->send(200, "text/html",errorPage);// sostituire con error page
+            request->send_P(200, "text/html",errorPage);
           }
         }
         else{
           Serial.println("Errore lettura parametri");
           Serial.println(request->args());
-          Serial.println(checkMqttParams(request));
-          request->send(200, "text/html",errorPage);// sostituire con error page
+          request->send_P(200, "text/html",errorPage);
         }
       }
+    });
+    //Riavvio forzato
+    server.on("/reboot", HTTP_POST, [](AsyncWebServerRequest *request){
+      request->send_P(200, "text/html",rebootPage);
+      shouldReboot = true;
+    });
+    //Reset
+    server.on("/reset", HTTP_POST, [](AsyncWebServerRequest *request){
+        if(request->params()==1 && request->hasParam("checked",true)){
+              request->send_P(200, "text/html",rebootPage);
+        }
+        else{
+            request->send_P(200, "text/html",errorPage);
+        }
+    });
+    //Index
+    server.on("/",HTTP_GET,[](AsyncWebServerRequest *request){
+      request->send_P(200, "text/html",indexPage);
     });
     server.begin();
     Serial.println("HTTP server started");
@@ -209,7 +234,7 @@ void setupOta(){
 
 bool checkMqttParams(AsyncWebServerRequest *request){
   return (request->hasParam("broker",true) && request->hasParam("port",true)
-          && request->hasParam("user",true) && request->hasParam("password",true) && request->hasParam("availability-topic",true)
+          && request->hasParam("username",true) && request->hasParam("password",true) && request->hasParam("availability-topic",true)
           && request->hasParam("command-topic",true) && request->hasParam("state-topic",true));
 }
 

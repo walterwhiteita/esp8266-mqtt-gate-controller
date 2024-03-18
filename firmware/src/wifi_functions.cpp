@@ -29,7 +29,7 @@ void wifi_reconnection(){
 
 void wifi_ap_start(){
   WiFi.mode(WIFI_AP);
-  WiFi.softAP("hagate","password");
+  WiFi.softAP(AP_SSID,AP_PASSWORD);
   Serial.println("Access Point created! IP address: ");
   Serial.println(WiFi.softAPIP());
 }

@@ -60,7 +60,6 @@ int loadMqttConfiguration(mqtt_conf_t *mqtt_conf){
         Serial.println("Errore in caricamento della configurazione mqtt!");
         return 1;
     }
-    
     JsonDocument mqtt_conf_json;
     DeserializationError error = deserializeJson(mqtt_conf_json, mc);
     if (error){
@@ -72,6 +71,9 @@ int loadMqttConfiguration(mqtt_conf_t *mqtt_conf){
         mqtt_conf->port=(int)mqtt_conf_json["port"];
         strcpy(mqtt_conf->username,mqtt_conf_json["username"]);
         strcpy(mqtt_conf->password,mqtt_conf_json["password"]);
+        strcpy(mqtt_conf->availability_topic,mqtt_conf_json["availability_topic"]);
+        strcpy(mqtt_conf->command_topic,mqtt_conf_json["command_topic"]);
+        strcpy(mqtt_conf->state_topic,mqtt_conf_json["state_topic"]);
         }
     mc.close();
     return 0;
@@ -88,6 +90,9 @@ int storeMqttConfiguration(mqtt_conf_t *mqtt_conf){
     mqtt_conf_json["port"]=mqtt_conf->port;
     mqtt_conf_json["username"]=mqtt_conf->username;
     mqtt_conf_json["password"]=mqtt_conf->password;
+    mqtt_conf_json["availability_topic"]=mqtt_conf->availability_topic;
+    mqtt_conf_json["command_topic"]=mqtt_conf->command_topic;
+    mqtt_conf_json["state_topic"]=mqtt_conf->state_topic;
     if (serializeJson(mqtt_conf_json, mc) == 0) {
         Serial.println(F("Errore nel salvataggio della configurazione MQTT!"));
         return 1;
