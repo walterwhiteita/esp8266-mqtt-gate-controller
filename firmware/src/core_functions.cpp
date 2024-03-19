@@ -9,7 +9,7 @@ static const int ACIn3 = 13;
 
 static const int Rele1 = 5;
 static const int Rele2 = 4;
-static const int Rele3 = 0;
+static const int Rele3 = 15;
 
 gateStatus actualState;
 gateStatus lastReadedState;
