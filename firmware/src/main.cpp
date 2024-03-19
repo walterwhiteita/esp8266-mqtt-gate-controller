@@ -34,6 +34,7 @@ String clientId = DEFAULT_CLIENTID_PREFIX;
 
 
 void setup() {
+  WiFi.scanNetworks();
   setupPin();
   Serial.begin(115200);
   clientId += String(ESP.getChipId(), DEC);
