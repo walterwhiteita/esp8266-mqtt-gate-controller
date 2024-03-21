@@ -13,12 +13,6 @@
 #include "mqtt_functions.h"
 #include "shared.h"
 
-// Update these with values suitable for your network.
-
-const char* ssid = "VF_IT_FWA_DF33";
-const char* password = "8iD3965d4284RYA5";
-const char* mqtt_server = "broker.hivemq.com";
-
 wifi_conf_t wifi_conf;
 mqtt_conf_t mqtt_conf;
 module_conf_t module_conf;
@@ -38,6 +32,7 @@ void setup() {
   setupPin();
   Serial.begin(115200);
   clientId += String(ESP.getChipId(), DEC);
+  initializeServerEndpoints();
   if(loadFS()==0){
     hasWifiConfig = (loadWifiConfiguration(&wifi_conf)==0);
     if(!hasWifiConfig){
@@ -52,7 +47,6 @@ void setup() {
       }
     }
   }
-  initializeServerEndpoints();
   setupOta();
 }
 

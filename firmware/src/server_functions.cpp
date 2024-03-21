@@ -4,6 +4,7 @@
 #include <ESPAsyncWebServer.h>
 #include <ElegantOTA.h>
 
+#include "mqtt_functions.h"
 #include "html_pages.h"
 #include "fs_functions.h"
 #include "shared.h"
@@ -19,6 +20,7 @@ extern String clientId;
 
 String wifiprocessor(const String& var);
 String mqttprocessor(const String& var);
+String indexprocessor(const String& var);
 bool checkWifiParams();
 bool checkMqttParams(AsyncWebServerRequest *request);
 
@@ -124,16 +126,24 @@ void initializeServerEndpoints(){
     });
     //Index
     server.on("/",HTTP_GET,[](AsyncWebServerRequest *request){
-      request->send_P(200, "text/html",indexPage);
-    });
-    //Connection endpoint
-    server.on("/connectioninfo",HTTP_GET,[](AsyncWebServerRequest *request){
-      request->send_P(200, "text/html",indexPage);
+      request->send_P(200, "text/html",indexPage,indexprocessor);
     });
     server.begin();
     Serial.println("HTTP server started");
 }
-
+String indexprocessor(const String& var){
+  if(var == "MQTT_STATUS"){
+    if(hasMqttConfig){
+      if(mqttConnected())
+        return "CONNECTED";
+      else
+        return "DISCONNETTED";
+    }
+    else
+      return "NOT CONFIGURED";
+  }
+  return String();
+}
 String wifiprocessor(const String& var) {
     if(var=="SAVED_HOSTNAME"){
       if(hasWifiConfig)
