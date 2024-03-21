@@ -34,7 +34,7 @@ void stateLog(bool force){
       String state = stateConversion(actualState);
       Serial.print("Forced log -> ");
       Serial.println(state);
-      client.publish(STATE_TOPIC,state.c_str());
+      client.publish(mqtt_conf.state_topic,state.c_str());
       lastLoggedState = actualState;
       lastLoggedTime = millis();
     }
@@ -44,7 +44,7 @@ void stateLog(bool force){
       String state = stateConversion(actualState);
       Serial.print("Normal log -> ");
       Serial.println(state);
-      client.publish(STATE_TOPIC,state.c_str());
+      client.publish(mqtt_conf.state_topic,state.c_str());
       lastLoggedState = actualState;
       lastLoggedTime = millis();
     }
@@ -70,7 +70,7 @@ void mqttSetupClient(){
 }
 
 void callback(char *topic, byte *payload, unsigned int length) {
-    if (!strcmp(topic, COMMAND_TOPIC)) {
+    if (!strcmp(topic, mqtt_conf.command_topic)) {
         if (!strncmp((char *)payload, "OPEN", length)) {
           handleCmnd(CMND_OPEN);
         } else if (!strncmp((char *)payload, "CLOSE", length)) {
@@ -85,10 +85,10 @@ void mqttReconnect() {
   // Loop until we're reconnected
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
-    if (client.connect(clientId.c_str(),mqtt_conf.username,mqtt_conf.password,AVAILABILITY_TOPIC,0,1,"offline")) {
+    if (client.connect(clientId.c_str(),mqtt_conf.username,mqtt_conf.password,mqtt_conf.availability_topic,0,1,"offline")) {
       Serial.println("connected");
-      client.subscribe(COMMAND_TOPIC);
-      client.publish(AVAILABILITY_TOPIC, "online", true);
+      client.subscribe(mqtt_conf.command_topic);
+      client.publish(mqtt_conf.availability_topic, "online", true);
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());

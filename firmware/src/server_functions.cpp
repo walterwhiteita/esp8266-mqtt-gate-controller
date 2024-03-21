@@ -126,6 +126,10 @@ void initializeServerEndpoints(){
     server.on("/",HTTP_GET,[](AsyncWebServerRequest *request){
       request->send_P(200, "text/html",indexPage);
     });
+    //Connection endpoint
+    server.on("/connectioninfo",HTTP_GET,[](AsyncWebServerRequest *request){
+      request->send_P(200, "text/html",indexPage);
+    });
     server.begin();
     Serial.println("HTTP server started");
 }
